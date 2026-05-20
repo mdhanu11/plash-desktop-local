@@ -122,7 +122,7 @@
   <span id="qnum"></span>
 </div>
 <div id="bottom">
-  <span>Dhanunjaya · iOS · Android . Flutter · React · Node</span>
+  <span>Dhanunjaya · 15 yrs · iOS · Android · React · Node</span>
   <span id="sceneName"></span>
   <span>keep building · keep shipping</span>
 </div>
@@ -182,13 +182,38 @@ const SCENES = [
   { name:"GEOMETRIC STORM", draw: drawGeo },
 ];
 
-// ── pick today's quote (date-based, changes daily) ──
+// ── quote: changes every day AND every reload ──────────────────
+// seed = days since epoch × reload counter stored in sessionStorage
 const today = new Date();
-const dayOfYear = Math.floor((today - new Date(today.getFullYear(),0,0)) / 86400000);
-let quoteIdx = dayOfYear % QUOTES.length;
+const daysSinceEpoch = Math.floor(today.getTime() / 86400000);
 
-// ── pick scene randomly on each reload (different from quote) ──
-let sceneIdx = Math.floor(Math.random() * SCENES.length);
+// track how many reloads today
+const storedDay = parseInt(sessionStorage.getItem('wpDay')||'0');
+const storedCount = parseInt(sessionStorage.getItem('wpCount')||'0');
+let reloadCount = (storedDay === daysSinceEpoch) ? storedCount + 1 : 0;
+sessionStorage.setItem('wpDay', daysSinceEpoch);
+sessionStorage.setItem('wpCount', reloadCount);
+
+// shuffle quotes deterministically using day+reload as seed
+// so same reload = same quote, next reload = next quote in shuffled deck
+function seededShuffle(arr, seed) {
+  const a = [...arr.keys()]; // [0,1,2,...n]
+  let s = seed;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// reshuffle deck each day, walk through it reload by reload
+const shuffled = seededShuffle(QUOTES, daysSinceEpoch);
+let quoteIdx = shuffled[reloadCount % QUOTES.length];
+
+// ── scene: also rotates each reload (different from quote) ──
+const sceneOrder = seededShuffle(SCENES, daysSinceEpoch + 999);
+let sceneIdx = reloadCount % SCENES.length;
 
 const { q, a, cat } = QUOTES[quoteIdx];
 const scene = SCENES[sceneIdx];
@@ -197,7 +222,7 @@ const scene = SCENES[sceneIdx];
 document.getElementById('dateel').textContent =
   today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toLowerCase();
 document.getElementById('qnum').textContent =
-  `quote ${String(quoteIdx+1).padStart(2,'0')} / ${QUOTES.length}`;
+  `reload ${String(reloadCount+1).padStart(2,'0')} / ${QUOTES.length}`;
 document.getElementById('badge').textContent = cat;
 document.getElementById('author').textContent = a;
 document.getElementById('sceneName').textContent = scene.name;
