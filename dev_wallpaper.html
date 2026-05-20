@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Wallpaper</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw; height: 100vh;
+    background: #080810;
+    overflow: hidden;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    color: #e2ff5d;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  #ui {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 10vw;
+    pointer-events: none;
+  }
+
+  #date-label {
+    font-size: clamp(11px, 1vw, 14px);
+    color: #2a2a4a;
+    letter-spacing: 0.3em;
+    margin-bottom: 2.5vh;
+    text-transform: uppercase;
+  }
+
+  #quote-line {
+    font-size: clamp(13px, 1.5vw, 22px);
+    color: #e2ff5d;
+    letter-spacing: 0.05em;
+    line-height: 1.7;
+    max-width: 55vw;
+    border-left: 3px solid #e2ff5d;
+    padding-left: 2vw;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+  }
+
+  #quote-line.visible { opacity: 1; }
+
+  #author {
+    margin-top: 2vh;
+    padding-left: 2vw;
+    font-size: clamp(10px, 0.9vw, 13px);
+    color: #2a3a5a;
+    letter-spacing: 0.25em;
+  }
+
+  #bottom-strip {
+    position: absolute;
+    bottom: 4vh;
+    left: 10vw;
+    right: 10vw;
+    border-top: 1px solid #111122;
+    padding-top: 2vh;
+    display: flex;
+    justify-content: space-between;
+    font-size: clamp(9px, 0.75vw, 11px);
+    color: #181828;
+    letter-spacing: 0.2em;
+  }
+
+  #day-counter {
+    position: absolute;
+    top: 4vh;
+    right: 10vw;
+    font-size: clamp(9px, 0.8vw, 12px);
+    color: #151525;
+    letter-spacing: 0.3em;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="ui">
+  <div id="date-label"></div>
+  <div id="quote-line"></div>
+  <div id="author"></div>
+</div>
+
+<div id="bottom-strip">
+  <span>iOS · Android · React · Node.js</span>
+  <span>keep building.</span>
+  <span>CRM → shipping</span>
+</div>
+
+<div id="day-counter"></div>
+
+<script>
+const QUOTES = [
+  { q: "// first, solve the problem.\n// then, write the code.", a: "— John Johnson" },
+  { q: "make it work.\nmake it right.\nmake it fast.", a: "— Kent Beck" },
+  { q: "any fool can write code\nthat a computer can understand.\ngood programmers write code\nthat humans can understand.", a: "— Martin Fowler" },
+  { q: "the best code is\nno code at all.", a: "— Jeff Atwood" },
+  { q: "simplicity is the\nsoul of efficiency.", a: "— Austin Freeman" },
+  { q: "code is like humor.\nif you have to explain it,\nit's bad.", a: "— Cory House" },
+  { q: "every expert was\nonce a beginner.\nship anyway.", a: "" },
+  { q: "the secret to getting ahead\nis getting started.", a: "— Mark Twain" },
+  { q: "consistency beats\nintensity.\nevery single time.", a: "" },
+  { q: "ship it.\nthen make it better.", a: "" },
+  { q: "small steps daily\noutpace big leaps\nnever taken.", a: "" },
+  { q: "you don't rise to the level\nof your goals.\nyou fall to the level\nof your systems.", a: "— James Clear" },
+  { q: "debugging is twice as hard\nas writing the code.\nso write it clean.", a: "— Brian Kernighan" },
+  { q: "done is better\nthan perfect.", a: "— Sheryl Sandberg" },
+  { q: "one commit a day\nkeeps imposter syndrome\nat bay.", a: "" },
+  { q: "the function of good software\nis to make the complex\nappear simple.", a: "— Grady Booch" },
+  { q: "talk is cheap.\nshow me the code.", a: "— Linus Torvalds" },
+  { q: "always code as if\nthe person who ends up\nmaintaining your code\nwill be you.", a: "" },
+  { q: "measure twice.\ncut once.\ncommit once.", a: "" },
+  { q: "progress, not perfection.", a: "" },
+  { q: "what you do every day\nmatters more than\nwhat you do once in a while.", a: "— Gretchen Rubin" },
+  { q: "the impedance of beginning\nis always the highest.\nopen the file.", a: "" },
+  { q: "fall in love with\nthe process.\nthe results will follow.", a: "" },
+  { q: "a year from now\nyou'll wish you had\nstarted today.", a: "— Karen Lamb" },
+  { q: "90% of success is\njust showing up\nand writing the code.", a: "" },
+  { q: "clean code always looks like\nit was written by someone\nwho cares.", a: "— Robert C. Martin" },
+  { q: "the best time to start\nwas yesterday.\nthe next best time\nis right now.", a: "" },
+  { q: "learn the fundamentals.\nthen you can break\nany rule.", a: "" },
+  { q: "write code for humans first.\ncomputers second.", a: "" },
+  { q: "every line you write\nis a line closer\nto who you want to be.", a: "" },
+  { q: "15 years in.\nstill learning.\nthat's the point.", a: "" },
+];
+
+function getDayIndex() {
+  const now = new Date();
+  const start = new Date(2024, 0, 1);
+  const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  return diff % QUOTES.length;
+}
+
+function formatDate() {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }).toLowerCase();
+}
+
+const idx = getDayIndex();
+const { q, a } = QUOTES[idx];
+
+document.getElementById('date-label').textContent = formatDate();
+document.getElementById('day-counter').textContent = `quote ${(idx + 1).toString().padStart(2, '0')} / ${QUOTES.length}`;
+
+const quoteEl = document.getElementById('quote-line');
+quoteEl.innerHTML = q.split('\n').map(l => `<span style="display:block">${l}</span>`).join('');
+document.getElementById('author').textContent = a;
+
+setTimeout(() => quoteEl.classList.add('visible'), 200);
+
+// Canvas background art
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  draw();
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Radial atmosphere
+  const grad = ctx.createRadialGradient(W*0.28, H*0.5, 0, W*0.5, H*0.5, W*0.7);
+  grad.addColorStop(0, '#0e0e1e');
+  grad.addColorStop(1, '#080810');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Dot grid
+  ctx.fillStyle = '#111120';
+  const gs = 60;
+  for (let x = 0; x < W; x += gs) {
+    for (let y = 0; y < H; y += gs) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Target circle — left side
+  const ox = W * 0.22, oy = H * 0.5;
+  const maxR = Math.min(W, H) * 0.22;
+
+  // Glow rings
+  [[1.6,3],[1.4,5],[1.2,8],[1.0,14],[0.85,10],[0.65,18]].forEach(([scale, a]) => {
+    ctx.beginPath();
+    ctx.arc(ox, oy, maxR * scale, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(0,${a},${a*2},0.5)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Main rings
+  [1.0, 0.85, 0.65, 0.38].forEach((s, i) => {
+    ctx.beginPath();
+    ctx.arc(ox, oy, maxR * s, 0, Math.PI * 2);
+    ctx.strokeStyle = i === 3 ? '#e2ff5d' : ['#0d3d4a','#0a2535','#0a2030'][i];
+    ctx.lineWidth = i === 3 ? 1 : 1.5;
+    ctx.globalAlpha = i === 3 ? 0.5 : 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Crosshairs
+  ctx.strokeStyle = '#0d1e28'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ox - maxR*1.1, oy); ctx.lineTo(ox + maxR*1.1, oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, oy - maxR*1.1); ctx.lineTo(ox, oy + maxR*1.1); ctx.stroke();
+
+  // Diagonals
+  [30, 60, 120, 150].forEach(deg => {
+    const a = deg * Math.PI / 180;
+    ctx.beginPath();
+    ctx.strokeStyle = '#0c1820';
+    ctx.moveTo(ox - Math.cos(a)*maxR, oy - Math.sin(a)*maxR);
+    ctx.lineTo(ox + Math.cos(a)*maxR, oy + Math.sin(a)*maxR);
+    ctx.stroke();
+  });
+
+  // Tick marks
+  for (let d = 0; d < 360; d += 10) {
+    const a = d * Math.PI / 180;
+    const ir = maxR * (d % 90 === 0 ? 0.95 : d % 30 === 0 ? 0.97 : 0.985);
+    const or = maxR * 1.005;
+    ctx.beginPath();
+    ctx.strokeStyle = d % 90 === 0 ? '#1a4a5a' : '#0e1e28';
+    ctx.lineWidth = d % 90 === 0 ? 2 : 1;
+    ctx.moveTo(ox + Math.cos(a)*ir, oy + Math.sin(a)*ir);
+    ctx.lineTo(ox + Math.cos(a)*or, oy + Math.sin(a)*or);
+    ctx.stroke();
+  }
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(ox, oy, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#e2ff5d';
+  ctx.fill();
+
+  // Constellation — top right
+  const nodes = [
+    [0.68,0.12],[0.75,0.08],[0.84,0.17],[0.78,0.28],
+    [0.88,0.10],[0.82,0.35],[0.70,0.36],[0.79,0.24],
+    [0.91,0.26],[0.95,0.11],[0.97,0.22],
+  ].map(([px,py]) => [px*W, py*H]);
+
+  const edges = [
+    [0,1],[1,2],[2,3],[3,6],[3,7],[7,4],[4,2],[7,5],[5,6],
+    [1,7],[4,9],[9,10],[10,8],[8,5],[2,10],[0,7],
+  ];
+
+  ctx.strokeStyle = '#0e1e2e'; ctx.lineWidth = 1;
+  edges.forEach(([i,j]) => {
+    ctx.beginPath();
+    ctx.moveTo(nodes[i][0], nodes[i][1]);
+    ctx.lineTo(nodes[j][0], nodes[j][1]);
+    ctx.stroke();
+  });
+
+  nodes.forEach(([nx,ny], i) => {
+    const r = [0,4,9].includes(i) ? 7 : 4;
+    const col = [0,4].includes(i) ? '#e2ff5d' : i===9 ? '#1a4060' : '#111828';
+    ctx.beginPath();
+    ctx.arc(nx, ny, r, 0, Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.fill();
+  });
+
+  // Ghost big text bottom left
+  ctx.font = `bold ${Math.floor(H*0.22)}px 'SF Pro Display', 'Helvetica Neue', sans-serif`;
+  ctx.fillStyle = '#0d0d18';
+  ctx.fillText('BUILD', W*0.04, H*0.75);
+  ctx.fillText('SHIP.', W*0.04, H*0.97);
+
+  // Accent bar
+  const barX = W*0.365;
+  ctx.fillStyle = '#e2ff5d';
+  ctx.fillRect(barX, H*0.34, 3, H*0.32);
+
+  // Stars
+  const stars = [
+    [0.05,0.08,2],[0.12,0.05,1],[0.20,0.13,1],[0.44,0.04,2],[0.58,0.07,1],
+    [0.96,0.40,2],[0.98,0.58,1],[0.97,0.82,2],[0.04,0.42,1],[0.03,0.65,2],
+    [0.08,0.88,1],[0.18,0.94,2],[0.50,0.97,1],[0.88,0.95,2],
+  ];
+  stars.forEach(([px,py,sr], i) => {
+    ctx.beginPath();
+    ctx.arc(px*W, py*H, sr, 0, Math.PI*2);
+    ctx.fillStyle = i%3===0 ? '#e2ff5d' : '#1a2a3a';
+    ctx.fill();
+  });
+
+  // Corner brackets
+  const blen = W * 0.025;
+  const bm = W * 0.032;
+  ctx.strokeStyle = '#1a1a2a'; ctx.lineWidth = 2;
+  [[bm,bm,1,1],[W-bm,bm,-1,1],[bm,H-bm,1,-1],[W-bm,H-bm,-1,-1]].forEach(([bx,by,dx,dy]) => {
+    ctx.beginPath(); ctx.moveTo(bx+dx*blen, by); ctx.lineTo(bx,by); ctx.lineTo(bx,by+dy*blen); ctx.stroke();
+  });
+}
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
